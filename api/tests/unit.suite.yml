@@ -1,0 +1,3 @@
+suite_namespace: api\tests\unit
+actor: UnitTester
+bootstrap: false

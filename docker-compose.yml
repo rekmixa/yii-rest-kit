@@ -1,0 +1,76 @@
+version: '3'
+
+services:
+  php:
+    image: yiisoftware/yii2-php:7.4-fpm
+    working_dir: /app
+    volumes:
+      - ~/.composer-docker/cache:/var/www/.composer/cache:delegated
+      - ./:/app:delegated
+      - ./docker/php/docker-php-entrypoint:/usr/local/bin/docker-php-entrypoint
+      - ./docker/php/.bashrc:/var/www/.bashrc
+    environment:
+      PHP_USER_ID: ${PHP_USER_ID}
+    depends_on:
+      - db
+    restart: ${RESTART}
+
+  api:
+    image: nginx:1.15-alpine
+    volumes:
+      - ./docker/api/default.conf:/etc/nginx/conf.d/default.conf
+      - ./:/app:delegated
+    depends_on:
+      - php
+    restart: ${RESTART}
+    labels:
+      traefik.enable: "true"
+      traefik.frontend.rule: "Host:${API_HOST}"
+    networks:
+      - default
+      - web
+
+  backend:
+    image: nginx:1.15-alpine
+    volumes:
+      - ./docker/backend/default.conf:/etc/nginx/conf.d/default.conf
+      - ./:/app:delegated
+    depends_on:
+      - php
+    restart: ${RESTART}
+    labels:
+      traefik.enable: "true"
+      traefik.frontend.rule: "Host:${BACKEND_HOST}"
+    networks:
+      - default
+      - web
+
+  db:
+    image: postgres:11.5-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: ${DB_MAIN},${DB_TEST}
+    volumes:
+      - ./docker/db/initdb.d:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - 127.0.0.1:${DOCKER_DB_PORT}:5432
+    restart: ${RESTART}
+
+  adminer:
+    image: adminer
+    labels:
+      traefik.enable: 'true'
+      traefik.frontend.rule: 'Host:${ADMINER_HOST}'
+    networks:
+      - default
+      - web
+    restart: ${RESTART}
+
+volumes:
+  db_data:
+
+networks:
+  web:
+    external: true
